@@ -16,8 +16,137 @@
       {
         "command": "2lang-hot.helloWorld",
         "title": "Hello World"
+      },
+      {
+        "command": "2lang-hot.refreshWeixin",
+        "title": "2lang-hot: 刷新微信热榜"
+      },
+      {
+        "command": "2lang-hot.refreshBilibili",
+        "title": "2lang-hot: 刷新Bilibili热榜"
+      },
+      {
+        "command": "2lang-hot.refreshDouyin",
+        "title": "2lang-hot: 刷新抖音热榜"
+      },
+      {
+        "command": "2lang-hot.refreshKuaishou",
+        "title": "2lang-hot: 刷新快手热榜"
+      },
+      {
+        "command": "2lang-hot.refresh36kr",
+        "title": "2lang-hot: 刷新36氪热榜"
+      },
+      {
+        "command": "2lang-hot.refreshSmzdm",
+        "title": "2lang-hot: 刷新什么值得买热榜"
+      },
+      {
+        "command": "2lang-hot.refreshXhs",
+        "title": "2lang-hot: 刷新小红书热榜"
+      },
+      {
+        "command": "2lang-hot.refreshWeibo",
+        "title": "2lang-hot: 刷新微博热搜"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "2lang-hot-container",
+          "title": "2lang 热榜",
+          "icon": "resources/eyes.svg"
+        }
+      ]
+    },
+    "views": {
+      "2lang-hot-container": [
+        {
+          "id": "2lang-hot.weixinView",
+          "name": "微信",
+          "type": "tree"
+        },
+        {
+          "id": "2lang-hot.bilibiliView",
+          "name": "Bilibili",
+          "type": "tree"
+        },
+        {
+          "id": "2lang-hot.douyinView",
+          "name": "抖音",
+          "type": "tree"
+        },
+        {
+          "id": "2lang-hot.kuaishouView",
+          "name": "快手",
+          "type": "tree"
+        },
+        {
+          "id": "2lang-hot.36krView",
+          "name": "36氪",
+          "type": "tree"
+        },
+        {
+          "id": "2lang-hot.smzdmView",
+          "name": "什么值得买",
+          "type": "tree"
+        },
+        {
+          "id": "2lang-hot.xhsView",
+          "name": "小红书",
+          "type": "tree"
+        },
+        {
+          "id": "2lang-hot.weiboView",
+          "name": "微博",
+          "type": "tree"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "2lang-hot.refreshWeixin",
+          "when": "view == 2lang-hot.weixinView",
+          "group": "navigation"
+        },
+        {
+          "command": "2lang-hot.refreshBilibili",
+          "when": "view == 2lang-hot.bilibiliView",
+          "group": "navigation"
+        },
+        {
+          "command": "2lang-hot.refreshDouyin",
+          "when": "view == 2lang-hot.douyinView",
+          "group": "navigation"
+        },
+        {
+          "command": "2lang-hot.refreshKuaishou",
+          "when": "view == 2lang-hot.kuaishouView",
+          "group": "navigation"
+        },
+        {
+          "command": "2lang-hot.refresh36kr",
+          "when": "view == 2lang-hot.36krView",
+          "group": "navigation"
+        },
+        {
+          "command": "2lang-hot.refreshSmzdm",
+          "when": "view == 2lang-hot.smzdmView",
+          "group": "navigation"
+        },
+        {
+          "command": "2lang-hot.refreshXhs",
+          "when": "view == 2lang-hot.xhsView",
+          "group": "navigation"
+        },
+        {
+          "command": "2lang-hot.refreshWeibo",
+          "when": "view == 2lang-hot.weiboView",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
@@ -28,7 +157,8 @@
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "vsce:package": "npx @vscode/vsce package"
   },
   "devDependencies": {
     "@types/vscode": "^1.109.0",
@@ -41,6 +171,7 @@
     "webpack": "^5.104.1",
     "webpack-cli": "^6.0.1",
     "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.7.1"
   }
 }
