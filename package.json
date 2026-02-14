@@ -12,6 +12,41 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "二朗速阅",
+      "properties": {
+        "2lang-hot.enableWeixin": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在侧边栏显示微信读书热榜视图。"
+        },
+        "2lang-hot.enableBilibili": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在侧边栏显示 Bilibili 热榜视图。"
+        },
+        "2lang-hot.enable36kr": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在侧边栏显示 36 氪热榜视图。"
+        },
+        "2lang-hot.enableWeibo": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在侧边栏显示微博热搜视图。"
+        },
+        "2lang-hot.enableBaidu": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在侧边栏显示百度热搜视图。"
+        },
+        "2lang-hot.enableToutiao": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在侧边栏显示今日头条热榜视图。"
+        }
+      }
+    },
     "commands": [
       {
         "command": "2lang-hot.helloWorld",
@@ -19,35 +54,45 @@
       },
       {
         "command": "2lang-hot.refreshWeixin",
-        "title": "2lang-hot: 刷新微信热榜"
+        "title": "2lang-hot: 刷新微信热榜",
+        "icon": "$(refresh)"
       },
       {
         "command": "2lang-hot.refreshBilibili",
-        "title": "2lang-hot: 刷新Bilibili热榜"
-      },
-      {
-        "command": "2lang-hot.refreshDouyin",
-        "title": "2lang-hot: 刷新抖音热榜"
-      },
-      {
-        "command": "2lang-hot.refreshKuaishou",
-        "title": "2lang-hot: 刷新快手热榜"
+        "title": "2lang-hot: 刷新Bilibili热榜",
+        "icon": "$(refresh)"
       },
       {
         "command": "2lang-hot.refresh36kr",
-        "title": "2lang-hot: 刷新36氪热榜"
-      },
-      {
-        "command": "2lang-hot.refreshSmzdm",
-        "title": "2lang-hot: 刷新什么值得买热榜"
-      },
-      {
-        "command": "2lang-hot.refreshXhs",
-        "title": "2lang-hot: 刷新小红书热榜"
+        "title": "2lang-hot: 刷新36氪热榜",
+        "icon": "$(refresh)"
       },
       {
         "command": "2lang-hot.refreshWeibo",
-        "title": "2lang-hot: 刷新微博热搜"
+        "title": "2lang-hot: 刷新微博热搜",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "2lang-hot.refreshBaidu",
+        "title": "2lang-hot: 刷新百度热搜",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "2lang-hot.refreshToutiao",
+        "title": "2lang-hot: 刷新今日头条热榜",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "2lang-hot.openChannelSettings",
+        "title": "2lang-hot: 渠道选择设置"
+      },
+      {
+        "command": "2lang-hot.openExtensionSettings",
+        "title": "2lang-hot: 打开插件设置"
+      },
+      {
+        "command": "2lang-hot.openReadme",
+        "title": "2lang-hot: 查看使用文档"
       }
     ],
     "viewsContainers": {
@@ -64,41 +109,42 @@
         {
           "id": "2lang-hot.weixinView",
           "name": "微信",
-          "type": "tree"
+          "type": "tree",
+          "when": "config.2lang-hot.enableWeixin"
+        },
+        {
+          "id": "2lang-hot.baiduView",
+          "name": "百度",
+          "type": "tree",
+          "when": "config.2lang-hot.enableBaidu"
         },
         {
           "id": "2lang-hot.bilibiliView",
           "name": "Bilibili",
-          "type": "tree"
-        },
-        {
-          "id": "2lang-hot.douyinView",
-          "name": "抖音",
-          "type": "tree"
-        },
-        {
-          "id": "2lang-hot.kuaishouView",
-          "name": "快手",
-          "type": "tree"
+          "type": "tree",
+          "when": "config.2lang-hot.enableBilibili"
         },
         {
           "id": "2lang-hot.36krView",
           "name": "36氪",
-          "type": "tree"
-        },
-        {
-          "id": "2lang-hot.smzdmView",
-          "name": "什么值得买",
-          "type": "tree"
-        },
-        {
-          "id": "2lang-hot.xhsView",
-          "name": "小红书",
-          "type": "tree"
+          "type": "tree",
+          "when": "config.2lang-hot.enable36kr"
         },
         {
           "id": "2lang-hot.weiboView",
           "name": "微博",
+          "type": "tree",
+          "when": "config.2lang-hot.enableWeibo"
+        },
+        {
+          "id": "2lang-hot.toutiaoView",
+          "name": "今日头条",
+          "type": "tree",
+          "when": "config.2lang-hot.enableToutiao"
+        },
+        {
+          "id": "2lang-hot.settingsView",
+          "name": "SETTINGS",
           "type": "tree"
         }
       ]
@@ -111,18 +157,13 @@
           "group": "navigation"
         },
         {
+          "command": "2lang-hot.refreshBaidu",
+          "when": "view == 2lang-hot.baiduView",
+          "group": "navigation"
+        },
+        {
           "command": "2lang-hot.refreshBilibili",
           "when": "view == 2lang-hot.bilibiliView",
-          "group": "navigation"
-        },
-        {
-          "command": "2lang-hot.refreshDouyin",
-          "when": "view == 2lang-hot.douyinView",
-          "group": "navigation"
-        },
-        {
-          "command": "2lang-hot.refreshKuaishou",
-          "when": "view == 2lang-hot.kuaishouView",
           "group": "navigation"
         },
         {
@@ -131,18 +172,13 @@
           "group": "navigation"
         },
         {
-          "command": "2lang-hot.refreshSmzdm",
-          "when": "view == 2lang-hot.smzdmView",
-          "group": "navigation"
-        },
-        {
-          "command": "2lang-hot.refreshXhs",
-          "when": "view == 2lang-hot.xhsView",
-          "group": "navigation"
-        },
-        {
           "command": "2lang-hot.refreshWeibo",
           "when": "view == 2lang-hot.weiboView",
+          "group": "navigation"
+        },
+        {
+          "command": "2lang-hot.refreshToutiao",
+          "when": "view == 2lang-hot.toutiaoView",
           "group": "navigation"
         }
       ]
@@ -151,6 +187,7 @@
   "scripts": {
     "vscode:prepublish": "pnpm run package",
     "compile": "webpack",
+    "build": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
     "compile-tests": "tsc -p . --outDir out",

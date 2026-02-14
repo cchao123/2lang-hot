@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { BaseHotProvider, HotItem } from './base/BaseProvider';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -21,57 +22,106 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const weixinProvider = new WeixinHotProvider();
 	const bilibiliProvider = new BilibiliHotProvider();
-	const douyinProvider = new DouyinHotProvider();
-	const kuaishouProvider = new KuaishouHotProvider();
 	const kr36Provider = new Kr36HotProvider();
-	const smzdmProvider = new SmzdmHotProvider();
-	const xhsProvider = new XhsHotProvider();
 	const weiboProvider = new WeiboHotProvider();
+	const baiduProvider = new BaiduHotProvider();
+	const toutiaoProvider = new ToutiaoHotProvider();
+	const settingsProvider = new SettingsProvider();
+
+	// 按渠道维护预览面板，每个渠道一个 tab
+	const previewPanels: Record<string, vscode.WebviewPanel | undefined> = {};
 
 	context.subscriptions.push(
 		vscode.window.registerTreeDataProvider('2lang-hot.weixinView', weixinProvider),
+		vscode.window.registerTreeDataProvider('2lang-hot.baiduView', baiduProvider),
 		vscode.window.registerTreeDataProvider('2lang-hot.bilibiliView', bilibiliProvider),
-		vscode.window.registerTreeDataProvider('2lang-hot.douyinView', douyinProvider),
-		vscode.window.registerTreeDataProvider('2lang-hot.kuaishouView', kuaishouProvider),
 		vscode.window.registerTreeDataProvider('2lang-hot.36krView', kr36Provider),
-		vscode.window.registerTreeDataProvider('2lang-hot.smzdmView', smzdmProvider),
-		vscode.window.registerTreeDataProvider('2lang-hot.xhsView', xhsProvider),
 		vscode.window.registerTreeDataProvider('2lang-hot.weiboView', weiboProvider),
+		vscode.window.registerTreeDataProvider('2lang-hot.toutiaoView', toutiaoProvider),
+		vscode.window.registerTreeDataProvider('2lang-hot.settingsView', settingsProvider),
 		vscode.commands.registerCommand('2lang-hot.refreshWeixin', () => weixinProvider.refresh()),
+		vscode.commands.registerCommand('2lang-hot.refreshBaidu', () => baiduProvider.refresh()),
 		vscode.commands.registerCommand('2lang-hot.refreshBilibili', () => bilibiliProvider.refresh()),
-		vscode.commands.registerCommand('2lang-hot.refreshDouyin', () => douyinProvider.refresh()),
-		vscode.commands.registerCommand('2lang-hot.refreshKuaishou', () => kuaishouProvider.refresh()),
 		vscode.commands.registerCommand('2lang-hot.refresh36kr', () => kr36Provider.refresh()),
-		vscode.commands.registerCommand('2lang-hot.refreshSmzdm', () => smzdmProvider.refresh()),
-		vscode.commands.registerCommand('2lang-hot.refreshXhs', () => xhsProvider.refresh()),
 		vscode.commands.registerCommand('2lang-hot.refreshWeibo', () => weiboProvider.refresh()),
-		vscode.commands.registerCommand(
-			'2lang-hot.openInWebview',
-			async (payload: { title?: string; url: string }) => {
-				const title = payload?.title?.trim() || '2lang-hot 预览';
-				const url = payload?.url;
-				if (!url) return;
-
-				const panel = vscode.window.createWebviewPanel(
-					'2langHotPreview',
-					title,
-					{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-					{
-						enableScripts: true,
-						retainContextWhenHidden: true
-					}
-				);
-
-				panel.webview.html = getPreviewHtml(panel.webview, title, url);
+		vscode.commands.registerCommand('2lang-hot.refreshToutiao', () => toutiaoProvider.refresh()),
+		vscode.commands.registerCommand('2lang-hot.openInWebview', (payload: { title?: string; url: string; source?: string }) => {
+			const title = payload?.title?.trim() || '2lang-hot 预览';
+			const url = payload?.url;
+			if (!url) {
+				return;
 			}
-		),
+
+			// 部分网站（如 bilibili、今日头条）会禁止 iframe 内嵌，这里直接用外部浏览器打开
+			try {
+				const u = new URL(url);
+				if (u.hostname.includes('bilibili.com') || u.hostname.includes('toutiao.com')) {
+					void vscode.env.openExternal(vscode.Uri.parse(url));
+					return;
+				}
+			} catch {
+				// ignore URL parse error, fall back to webview
+			}
+
+			const sourceKey = payload?.source ?? 'default';
+			let panel = previewPanels[sourceKey];
+
+			// 已有该渠道预览面板时重用它，并覆盖内容
+			if (panel) {
+				panel.title = title;
+				panel.webview.html = getPreviewHtml(panel.webview, title, url);
+				panel.reveal(vscode.ViewColumn.Active, false);
+				return;
+			}
+
+			panel = vscode.window.createWebviewPanel(
+				'2langHotPreview',
+				title,
+				{ viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
+				{
+					enableScripts: true,
+					retainContextWhenHidden: true
+				}
+			);
+
+			panel.webview.html = getPreviewHtml(panel.webview, title, url);
+			previewPanels[sourceKey] = panel;
+
+			panel.onDidDispose(
+				() => {
+					if (previewPanels[sourceKey] === panel) {
+						previewPanels[sourceKey] = undefined;
+					}
+				},
+				null,
+				context.subscriptions
+			);
+		}),
+		vscode.commands.registerCommand('2lang-hot.openChannelSettings', () => {
+			void vscode.commands.executeCommand('workbench.action.openSettings', '2lang-hot.');
+		}),
+		vscode.commands.registerCommand('2lang-hot.openExtensionSettings', () => {
+			void vscode.commands.executeCommand('workbench.action.openSettings', '@ext:2lang-hot');
+		}),
+		vscode.commands.registerCommand('2lang-hot.openReadme', async () => {
+			try {
+				const ext = vscode.extensions.getExtension('2lang-hot');
+				if (!ext) {
+					throw new Error('extension not found');
+				}
+				const uri = vscode.Uri.joinPath(ext.extensionUri, 'README.md');
+				await vscode.commands.executeCommand('markdown.showPreview', uri);
+			} catch {
+				void vscode.window.showInformationMessage('可以在扩展根目录的 README.md 中查看使用说明。');
+			}
+		}),
 		vscode.commands.registerCommand('2lang-hot.openExternal', async (url: string) => {
 			try {
 				await vscode.env.openExternal(vscode.Uri.parse(url));
 			} catch (e) {
 				vscode.window.showErrorMessage(`打开链接失败：${String(e)}`);
 			}
-		})
+	})
 	);
 
 	context.subscriptions.push(disposable);
@@ -80,69 +130,40 @@ export function activate(context: vscode.ExtensionContext) {
 // This method is called when your extension is deactivated
 export function deactivate() {}
 
-class HotItem extends vscode.TreeItem {
-	constructor(
-		public readonly label: string,
-		public readonly description: string | undefined,
-		public readonly url: string | undefined
-	) {
-		super(label, vscode.TreeItemCollapsibleState.None);
-		this.tooltip = url ? `${label}\n${url}` : label;
-		this.description = description;
-		if (url) {
-			this.command = {
-				command: '2lang-hot.openInWebview',
-				title: '在右侧预览',
-				arguments: [{ title: label, url }]
-			};
-		}
-	}
-}
-
-abstract class BaseHotProvider implements vscode.TreeDataProvider<HotItem> {
+class SettingsProvider implements vscode.TreeDataProvider<HotItem> {
 	private readonly _onDidChangeTreeData = new vscode.EventEmitter<HotItem | undefined | void>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
-
-	private loading = false;
-	private cache: HotItem[] | null = null;
-	private lastError: string | null = null;
-
-	refresh(): void {
-		this.cache = null;
-		this._onDidChangeTreeData.fire();
-	}
 
 	getTreeItem(element: HotItem): vscode.TreeItem {
 		return element;
 	}
 
-	async getChildren(): Promise<HotItem[]> {
-		if (this.loading) {
-			return [new HotItem('加载中...', undefined, undefined)];
-		}
+	getChildren(): Thenable<HotItem[]> {
+		const items: HotItem[] = [
+			new HotItem('渠道选择', '勾选要显示的平台', undefined, 'settings-channel'),
+			new HotItem('插件设置', '打开 VS Code 扩展设置', undefined, 'settings-extension'),
+			new HotItem('使用文档', '查看 README 说明', undefined, 'settings-docs')
+		];
 
-		if (this.cache) {
-			return this.cache;
-		}
+		// 为不同按钮绑定不同命令
+		items[0].command = {
+			command: '2lang-hot.openChannelSettings',
+			title: '渠道选择',
+			arguments: []
+		};
+		items[1].command = {
+			command: '2lang-hot.openExtensionSettings',
+			title: '插件设置',
+			arguments: []
+		};
+		items[2].command = {
+			command: '2lang-hot.openReadme',
+			title: '使用文档',
+			arguments: []
+		};
 
-		this.loading = true;
-		this.lastError = null;
-		this._onDidChangeTreeData.fire();
-
-		try {
-			const items = await this.fetchItems();
-			this.cache = items.length ? items : [new HotItem('暂无数据', undefined, undefined)];
-			return this.cache;
-		} catch (e) {
-			this.lastError = String(e);
-			return [new HotItem(`加载失败：${this.lastError}`, '点击刷新重试', undefined)];
-		} finally {
-			this.loading = false;
-			this._onDidChangeTreeData.fire();
-		}
+		return Promise.resolve(items);
 	}
-
-	protected abstract fetchItems(): Promise<HotItem[]>;
 }
 
 class WeixinHotProvider extends BaseHotProvider {
@@ -173,7 +194,7 @@ class WeixinHotProvider extends BaseHotProvider {
 			const author = b?.book?.author ?? b?.author ?? b?.bookInfo?.author;
 			const bookId = b?.book?.bookId ?? b?.bookId ?? b?.bookInfo?.bookId;
 			const jumpUrl = bookId ? `https://weread.qq.com/web/book/${bookId}` : undefined;
-			return new HotItem(`${idx + 1}. ${title}`, author, jumpUrl);
+			return new HotItem(`${idx + 1}. ${title}`, author, jumpUrl, 'weixin');
 		});
 	}
 }
@@ -208,59 +229,7 @@ class BilibiliHotProvider extends BaseHotProvider {
 				: aid
 					? `https://www.bilibili.com/video/av${aid}`
 					: undefined;
-			return new HotItem(`${idx + 1}. ${title}`, up, jumpUrl);
-		});
-	}
-}
-
-class DouyinHotProvider extends BaseHotProvider {
-	protected async fetchItems(): Promise<HotItem[]> {
-		const url = 'https://www.tianchenw.com/hot/douyin';
-		const res = await fetch(url, {
-			headers: {
-				'User-Agent': 'Mozilla/5.0'
-			}
-		});
-		if (!res.ok) throw new Error(`HTTP ${res.status}`);
-		const data: any = await res.json();
-
-		const list: any[] =
-			data?.data ??
-			data?.list ??
-			data?.result ??
-			[];
-
-		return list.slice(0, 50).map((it: any, idx: number) => {
-			const title = it?.title ?? it?.name ?? `未命名 #${idx + 1}`;
-			const hot = it?.hot ?? it?.heat ?? it?.hotValue;
-			const jumpUrl = it?.url ?? it?.link;
-			return new HotItem(`${idx + 1}. ${title}`, hot, jumpUrl);
-		});
-	}
-}
-
-class KuaishouHotProvider extends BaseHotProvider {
-	protected async fetchItems(): Promise<HotItem[]> {
-		const url = 'https://www.tianchenw.com/hot/kuaishou';
-		const res = await fetch(url, {
-			headers: {
-				'User-Agent': 'Mozilla/5.0'
-			}
-		});
-		if (!res.ok) throw new Error(`HTTP ${res.status}`);
-		const data: any = await res.json();
-
-		const list: any[] =
-			data?.data ??
-			data?.list ??
-			data?.result ??
-			[];
-
-		return list.slice(0, 50).map((it: any, idx: number) => {
-			const title = it?.title ?? it?.name ?? `未命名 #${idx + 1}`;
-			const hot = it?.hot ?? it?.heat ?? it?.hotValue;
-			const jumpUrl = it?.url ?? it?.link;
-			return new HotItem(`${idx + 1}. ${title}`, hot, jumpUrl);
+			return new HotItem(`${idx + 1}. ${title}`, up, jumpUrl, 'bilibili');
 		});
 	}
 }
@@ -298,46 +267,7 @@ class Kr36HotProvider extends BaseHotProvider {
 				it.link ??
 				(itemId ? `https://www.36kr.com/p/${itemId}` : undefined);
 
-			return new HotItem(`${idx + 1}. ${title}`, author ?? stat, jumpUrl);
-		});
-	}
-}
-
-class SmzdmHotProvider extends BaseHotProvider {
-	protected async fetchItems(): Promise<HotItem[]> {
-		// 官方开放平台需要授权，这里暂时只给一个占位提示
-		return [
-			new HotItem(
-				'暂未接入什么值得买官方 API',
-				'后续可通过 openapi.zhidemai.com 接入',
-				undefined
-			)
-		];
-	}
-}
-
-class XhsHotProvider extends BaseHotProvider {
-	protected async fetchItems(): Promise<HotItem[]> {
-		const url = 'https://api.itapi.cn/api/hotnews/xiaohongshu';
-		const res = await fetch(url, {
-			headers: {
-				'User-Agent': 'Mozilla/5.0'
-			}
-		});
-		if (!res.ok) throw new Error(`HTTP ${res.status}`);
-		const data: any = await res.json();
-
-		const list: any[] =
-			data?.data ??
-			data?.list ??
-			data?.result ??
-			[];
-
-		return list.slice(0, 50).map((it: any, idx: number) => {
-			const title = it?.title ?? it?.name ?? it?.word ?? `未命名 #${idx + 1}`;
-			const hot = it?.hot ?? it?.heat ?? it?.read ?? it?.pv;
-			const jumpUrl = it?.url ?? it?.link;
-			return new HotItem(`${idx + 1}. ${title}`, hot, jumpUrl);
+			return new HotItem(`${idx + 1}. ${title}`, author ?? stat, jumpUrl, '36kr');
 		});
 	}
 }
@@ -375,15 +305,70 @@ class WeiboHotProvider extends BaseHotProvider {
 			const jumpUrl =
 				it?.url ??
 				(it?.scheme ?? `https://s.weibo.com/weibo?q=${q}&t=31&band_rank=${idx + 1}`);
-			return new HotItem(`${idx + 1}. ${title}`, hot ? String(hot) : undefined, jumpUrl);
+			return new HotItem(`${idx + 1}. ${title}`, hot ? String(hot) : undefined, jumpUrl, 'weibo');
+		});
+	}
+}
+
+class BaiduHotProvider extends BaseHotProvider {
+	protected async fetchItems(): Promise<HotItem[]> {
+		// 百度热搜官方接口：https://top.baidu.com/api/board?platform=wise&tab=realtime
+		const url = 'https://top.baidu.com/api/board?platform=wise&tab=realtime';
+		const res = await fetch(url, {
+			headers: {
+				'User-Agent': 'Mozilla/5.0',
+				Referer: 'https://top.baidu.com/'
+			}
+		});
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const root: any = await res.json();
+		if (!root?.success || !root?.data?.cards) {
+			throw new Error('接口返回格式异常');
+		}
+
+		// 结构：data.cards[] 中 component === 'tabTextList' 的 content[0].content 为热搜列表
+		const card = root.data.cards.find((c: any) => c?.component === 'tabTextList');
+		const list: any[] =
+			card?.content?.[0]?.content ??
+			[];
+
+		return list.slice(0, 50).map((it: any, idx: number) => {
+			const title = it?.word ?? `未命名 #${idx + 1}`;
+			const tag = it?.newHotName ?? it?.labelTagName;
+			const jumpUrl = it?.url ?? (it?.word ? `https://www.baidu.com/s?wd=${encodeURIComponent(it.word)}` : undefined);
+			return new HotItem(`${idx + 1}. ${title}`, tag, jumpUrl, 'baidu');
+		});
+	}
+}
+
+class ToutiaoHotProvider extends BaseHotProvider {
+	protected async fetchItems(): Promise<HotItem[]> {
+		// 今日头条热榜官方接口：https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc
+		const url = 'https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc';
+		const res = await fetch(url, {
+			headers: {
+				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+				Referer: 'https://www.toutiao.com/'
+			}
+		});
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		const root: any = await res.json();
+
+		const list: any[] = root?.data ?? [];
+
+		return list.slice(0, 50).map((it: any, idx: number) => {
+			const title = it?.Title ?? it?.title ?? it?.QueryWord ?? `未命名 #${idx + 1}`;
+			const hot = it?.HotValue;
+			const label = it?.LabelDesc ?? (it?.Label === 'interpretation' ? '解读' : it?.Label === 'new' ? '新' : it?.Label === 'refuteRumors' ? '辟谣' : it?.Label === 'forum' ? '热议' : '');
+			const desc = hot ? (label ? `${label} · ${hot}` : String(hot)) : label;
+			const jumpUrl = it?.Url ?? it?.url;
+			return new HotItem(`${idx + 1}. ${title}`, desc, jumpUrl, 'toutiao');
 		});
 	}
 }
 
 function getPreviewHtml(webview: vscode.Webview, title: string, url: string): string {
 	const nonce = getNonce();
-	// 注意：有些站点会通过 X-Frame-Options / CSP 禁止 iframe，这种情况下 iframe 会空白
-	// 我们保留一个“用浏览器打开”的按钮作为兜底
 	const escapedTitle = escapeHtml(title);
 	const escapedUrl = escapeHtml(url);
 
@@ -400,32 +385,12 @@ function getPreviewHtml(webview: vscode.Webview, title: string, url: string): st
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <title>${escapedTitle}</title>
       <style>
-        body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: #e5e7eb; background: #020617; }
-        .bar { display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom: 1px solid #1e293b; }
-        .title { font-size: 12px; font-weight: 600; flex: 1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .btn { border:1px solid #1e293b; background:#0b1226; color:#e5e7eb; border-radius:6px; padding:4px 8px; font-size: 11px; cursor:pointer; }
-        .btn:hover { background:#0f172a; }
-        .hint { padding:10px; font-size: 12px; color:#94a3b8; }
-        iframe { width: 100%; height: calc(100vh - 40px); border: 0; background: #0b1226; }
-        a { color: #38bdf8; }
+        body { margin: 0; background: #020617; }
+        iframe { width: 100%; height: 100vh; border: 0; background: #0b1226; }
       </style>
     </head>
     <body>
-      <div class="bar">
-        <div class="title">${escapedTitle}</div>
-        <button class="btn" id="openExternal">用浏览器打开</button>
-      </div>
       <iframe src="${escapedUrl}" referrerpolicy="no-referrer"></iframe>
-      <div class="hint">
-        如果上方预览空白，通常是目标站点禁止 iframe。你仍然可以点击“用浏览器打开”。
-      </div>
-      <script nonce="${nonce}">
-        const url = ${JSON.stringify(url)};
-        const btn = document.getElementById('openExternal');
-        btn?.addEventListener('click', () => {
-          window.location.href = 'command:2lang-hot.openExternal?' + encodeURIComponent(JSON.stringify([url]));
-        });
-      </script>
     </body>
   </html>`;
 }
