@@ -1,14 +1,32 @@
 {
   "name": "2lang-hot",
   "displayName": "2lang-hot",
-  "description": "",
+  "description": "VS Code 扩展，在侧边栏显示国内各大平台的热榜内容",
   "version": "0.0.1",
+  "publisher": "cchao",
   "engines": {
     "vscode": "^1.109.0"
   },
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "hot",
+    "trending",
+    "weibo",
+    "bilibili",
+    "baidu",
+    "36kr",
+    "weixin",
+    "toutiao",
+    "热榜",
+    "热搜"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cchao123/2lang-hot.git"
+  },
+  "license": "MIT",
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
